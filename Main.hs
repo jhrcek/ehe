@@ -51,6 +51,12 @@ flattenMaybe = fmap fromJust . V.filter isJust
 method :: Value -> Maybe Value
 method msg = msg ^? key "request" . key "method"
 
+url :: Value -> Maybe T.Text
+url msg = msg ^? key "request" . key "url" . _String
+
+urlIsErraiBus :: Value -> Bool
+urlIsErraiBus msg = maybe False (T.isInfixOf "erraiBus") $ url msg
+
 mimeType :: Value -> Maybe Value
 mimeType msg = msg ^? key "request" . key "postData" . key "mimeType"
 
@@ -64,7 +70,7 @@ hasJsonText :: Value -> Bool
 hasJsonText msg = mimeType msg == Just (String "application/json; charset=utf-8")
 
 isErraiPost :: Value -> Bool
-isErraiPost msg = isPost msg && hasJsonText msg
+isErraiPost msg = isPost msg && hasJsonText msg && urlIsErraiBus msg
 
 toLbs :: T.Text -> B.ByteString
 toLbs = B.fromStrict . encodeUtf8
