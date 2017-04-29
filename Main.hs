@@ -22,16 +22,14 @@ main = do
       erraiPostMessages = V.filter isErraiPost messages
 
        -- TODO figure out how to avoid cat maybes and manual deconstructino using traversal?
-      postDataFromErraiMessages = flattenMaybe $ fmap postDataText erraiPostMessages :: V.Vector T.Text
-
+      postDataFromErraiMessages = flattenMaybe $ fmap postDataText erraiPostMessages :: V.Vector Text
       (errors, decodedMessages) = fmap concat . partitionEithers . V.toList $ fmap decodeErraiMessages postDataFromErraiMessages :: ([String], [ErraiMessage])
-
 
   mapM_ print decodedMessages
   putStrLn $ unlines
     [ "Total messages = " ++ show (V.length messages)
     , "Errai POST messages = " ++ show (V.length erraiPostMessages)
-    , "   " ++ show (length errors) ++ " decoded errors"
+    , "   " ++ show (length errors) ++ " decode errors"
     , "   " ++ show (length decodedMessages) ++ " decoded successfully"
     ]
 
@@ -48,8 +46,8 @@ parseHar = fmap decode . B.readFile
 flattenMaybe :: V.Vector (Maybe a) -> V.Vector a
 flattenMaybe = fmap fromJust . V.filter isJust
 
-method :: Value -> Maybe Value
-method msg = msg ^? key "request" . key "method"
+method :: Value -> Maybe Text
+method msg = msg ^? key "request" . key "method" . _String
 
 url :: Value -> Maybe T.Text
 url msg = msg ^? key "request" . key "url" . _String
@@ -57,17 +55,17 @@ url msg = msg ^? key "request" . key "url" . _String
 urlIsErraiBus :: Value -> Bool
 urlIsErraiBus msg = maybe False (T.isInfixOf "erraiBus") $ url msg
 
-mimeType :: Value -> Maybe Value
-mimeType msg = msg ^? key "request" . key "postData" . key "mimeType"
+mimeType :: Value -> Maybe Text
+mimeType msg = msg ^? key "request" . key "postData" . key "mimeType" . _String
 
-postDataText :: Value -> Maybe T.Text
+postDataText :: Value -> Maybe Text
 postDataText o = o ^? key "request" . key "postData" . key "text" . _String
 
 isPost :: Value -> Bool
-isPost msg = method msg == Just (String "POST")
+isPost msg = maybe False (=="POST") $ method msg
 
 hasJsonText :: Value -> Bool
-hasJsonText msg = mimeType msg == Just (String "application/json; charset=utf-8")
+hasJsonText msg = maybe False (T.isPrefixOf "application/json") $ mimeType msg
 
 isErraiPost :: Value -> Bool
 isErraiPost msg = isPost msg && hasJsonText msg && urlIsErraiBus msg
